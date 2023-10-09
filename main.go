@@ -84,14 +84,6 @@ func getLocalStatePath() (string, error) {
 	return filepath.Join(userDataPath, "Local State"), nil
 }
 
-func getLoginDataPath() (string, error) {
-	userDataPath, err := getUserDataPath()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(userDataPath, "Default", "Login Data"), nil
-}
-
 func getLoginDataPaths() ([]string, error) {
 	var paths []string
 	userDataPath, err := getUserDataPath()
