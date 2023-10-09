@@ -115,6 +115,12 @@ func getLoginDataPaths() ([]string, error) {
 
 // Passowords decrypt
 
+type Password struct {
+	URL      string `json:"url"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 func getMasterKey() ([]byte, error) {
 	localStatePath, err := getLocalStatePath()
 	if err != nil {
@@ -160,6 +166,8 @@ func decryptPassword(masterKey, encryptedPassword []byte) (string, error) {
 }
 
 func main() {
+	var passwords []Password
+
 	masterKey, err := getMasterKey()
 	if err != nil {
 		panic(err)
@@ -195,17 +203,27 @@ func main() {
 
 		// Loop over records
 		for rows.Next() {
-			var url, username string
+			var password Password
 			var encryptedPassword []byte
-			err := rows.Scan(&url, &username, &encryptedPassword)
+			err := rows.Scan(&password.URL, &password.Username, &encryptedPassword)
 			if err != nil {
 				panic(err)
 			}
-			password, err := decryptPassword(masterKey, encryptedPassword)
+			password.Password, err = decryptPassword(masterKey, encryptedPassword)
 			if err != nil {
 				panic(err)
 			}
-			fmt.Println(url, username, password)
+			passwords = append(passwords, password)
+		}
+		if err := rows.Err(); err != nil {
+			panic(err)
 		}
 	}
+
+	// Print json with all clear passwords
+	json, err := json.Marshal(passwords)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(json))
 }

