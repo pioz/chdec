@@ -147,22 +147,30 @@ func getMasterKey() ([]byte, error) {
 }
 
 func decryptPassword(masterKey, encryptedPassword []byte) (string, error) {
-	cipherText := encryptedPassword[3:]
-	block, err := aes.NewCipher(masterKey)
-	if err != nil {
-		return "", err
+	prefix, cipherText := string(encryptedPassword[:3]), encryptedPassword[3:]
+	if prefix == "v10" { // Google Chrome version 80 or higher
+		block, err := aes.NewCipher(masterKey)
+		if err != nil {
+			return "", err
+		}
+		aesgcm, err := cipher.NewGCM(block)
+		if err != nil {
+			return "", err
+		}
+		nonceSize := aesgcm.NonceSize()
+		nonce, cipherText := cipherText[:nonceSize], cipherText[nonceSize:]
+		password, err := aesgcm.Open(nil, nonce, cipherText, nil)
+		if err != nil {
+			return "", err
+		}
+		return string(password), nil
+	} else { // Google Chrome version < 80
+		password, err := dpapiDecrypt(encryptedPassword)
+		if err != nil {
+			return "", err
+		}
+		return string(password), nil
 	}
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", err
-	}
-	nonceSize := aesgcm.NonceSize()
-	nonce, cipherText := cipherText[:nonceSize], cipherText[nonceSize:]
-	password, err := aesgcm.Open(nil, nonce, cipherText, nil)
-	if err != nil {
-		return "", err
-	}
-	return string(password), nil
 }
 
 func main() {
