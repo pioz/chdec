@@ -1,3 +1,5 @@
+// chdec by Pioz
+
 package main
 
 import (
